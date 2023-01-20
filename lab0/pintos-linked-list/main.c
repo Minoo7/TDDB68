@@ -13,8 +13,9 @@ typedef struct list_elem list_elem;
 
 // Vrf funkar det med malloc och utan? : malloc(sizeof(student)); : (char*) malloc(sizeof(char));
 void insert (struct list *student_list) {
-	student *new_student = malloc(sizeof(student));
-	char *name = (char*) malloc(sizeof(char));
+	student *new_student = malloc(sizeof(student)); // fel
+	//char *name = (char*) malloc(sizeof(char));
+	char *name = malloc(30); // malloc(sizeof(char));
 
 	// fetch name
 	printf("What's your name: ");
@@ -60,7 +61,7 @@ void print (struct list *student_list) {
 }
 
 void clear (struct list *student_list) {
-	// Loop through list and pop element from the front 
+	// Loop through list and pop element from the front
 	while (!list_empty (student_list)) {
 		list_elem *e = list_pop_front(student_list);
 		student *stud = list_entry(e, struct student, elem);
@@ -68,6 +69,7 @@ void clear (struct list *student_list) {
 		free(stud);
 		// free(e);
 	}
+
 }
 
 int main() {
