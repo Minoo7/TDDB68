@@ -10,12 +10,9 @@ struct student {
 typedef struct student student;
 typedef struct list_elem list_elem;
 
-
-// Vrf funkar det med malloc och utan? : malloc(sizeof(student)); : (char*) malloc(sizeof(char));
 void insert (struct list *student_list) {
-	student *new_student = (student*) malloc(sizeof(struct student)); // fel
-	//char *name = (char*) malloc(sizeof(char));
-	char *name = (char*) malloc(100); // malloc(sizeof(char));
+	student *new_student = (student*) malloc(sizeof(struct student));
+	char *name = (char*) malloc(sizeof(char)*20); //char *name = (char*) malloc(sizeof(char));
 
 	// fetch name
 	printf("What's your name: ");
@@ -67,7 +64,6 @@ void clear (struct list *student_list) {
 		student *stud = list_entry(e, struct student, elem);
 		free(stud->name);
 		free(stud);
-		// free(e);
 	}
 
 }
