@@ -4,67 +4,104 @@
 
 /* --- HEADER --- */
 
-struct list_item {
+typedef struct list_item {
     int value;
     struct list_item *next;
-};
+} list_item;
 
 /* puts x at the end of the list */
-void append(struct list_item *first, int x);
+void append(list_item *first, int x);
 
 /* puts x at the beginning of the list */
-void prepend(struct list_item *first, int x);
+void prepend(list_item *first, int x);
 
 /* prints all elements in the list */
-void print(struct list_item *first);
+void print(list_item *first);
 
 /* input_sorted: find the first element in the list
  larger than x and input x right before that element */
-void input_sorted(struct list_item *first, int x);
+void input_sorted(list_item *first, int x);
 
 /* free everything dynamically allocated */
-void clear(struct list_item *first);
+void clear(list_item *first);
 
 
 /* --- Implementation --- */
 
-void append(struct list_item *first, int x) {
-    struct list_item *item = malloc(sizeof(struct list_item));
+void append(list_item *first, int x) {
+    list_item *item = (list_item*) malloc(sizeof(list_item));
     item->value = x;
     item->next = NULL;
 
-    struct list_item *curr = first;
+    list_item *curr = first;
     while(curr->next != NULL) { // loop until we're at the last item
         curr = curr->next;    
     }
     curr->next = item;
 }
 
-void prepend(struct list_item *first, int x) {
-    struct list_item *item = malloc(sizeof(struct list_item));
+void prepend(list_item *first, int x) {
+    list_item *item = (list_item*) malloc(sizeof(list_item));
     item->value = x;
 
     item->next = first->next;
     first->next = item;
 }
 
-void print(struct list_item *first) {
-	struct list_item *curr = first;
+void print(list_item *first) {
+	list_item *curr = first;
     while(curr->next != NULL) {
 		curr = curr->next;
 		printf("%d ", curr->value);
-		// printf(curr->value);
 	}
     printf("\n");
 }
 
+void input_sorted(list_item *first, int x) {
+    list_item *curr = first;
+    while(curr->next != NULL) {
+        if (curr->next->value > x) {
+            break;
+        }
+        curr = curr->next;  
+    }
+    prepend(curr, x);
+}
+
+void clear(list_item *first) {
+    // Clears all list items except for HEAD
+    list_item *curr = first->next;
+    list_item *next = NULL;
+	while (curr != NULL) {
+        next = curr->next;
+		free(curr);
+        curr = next;
+    }
+    first->next = NULL;
+}
+
 /* --- Main --- */
 int main(int argc, char **argv) {
-    struct list_item root;
+    list_item root; // why works * with and without pointer for root???
     root.value = -1; /* This value is always ignored */
     root.next = NULL;
 
-    int opt;
+    append(&root, 2);
+    append(&root, 5);
+    print(&root);
+
+    input_sorted(&root, 3);
+    print(&root);
+    prepend(&root, 9);
+    print(&root);
+    
+    clear(&root);
+    print(&root);
+    append(&root, 1);
+    print(&root);
+    clear(&root);
+
+    /*int opt;
     
     do {
 		printf("Menu:\n");
@@ -81,11 +118,17 @@ int main(int argc, char **argv) {
 				printf("value to insert: ");
 				scanf("%d", val);
                 append(&root, *val);
+                free(val);
 				break;
             }
             case 2: 
             {
+                int *val = malloc(100);
+				printf("value to prepend: ");
+				scanf("%d", val);
+                input_sorted(&root, *val);
                 prepend(&root, opt);
+                free(val);
 				break;
             }
             case 3: 
@@ -95,12 +138,16 @@ int main(int argc, char **argv) {
             }
             case 4: 
             {
-                //input_sorted(&root, opt);
+                int *val = malloc(100);
+				printf("value to input insert: ");
+				scanf("%d", val);
+                input_sorted(&root, *val);
+                free(val);
 				break;
             }
             case 5: 
             {
-                //clear(&root);
+                clear(&root);
 				break;
             }
             default: {
@@ -108,5 +155,5 @@ int main(int argc, char **argv) {
             }
         }
 	} while(1);
-	return 0;
+	return 0;*/
 }

@@ -13,9 +13,9 @@ typedef struct list_elem list_elem;
 
 // Vrf funkar det med malloc och utan? : malloc(sizeof(student)); : (char*) malloc(sizeof(char));
 void insert (struct list *student_list) {
-	student *new_student = malloc(sizeof(student)); // fel
+	student *new_student = (student*) malloc(sizeof(struct student)); // fel
 	//char *name = (char*) malloc(sizeof(char));
-	char *name = malloc(30); // malloc(sizeof(char));
+	char *name = (char*) malloc(100); // malloc(sizeof(char));
 
 	// fetch name
 	printf("What's your name: ");
@@ -28,7 +28,7 @@ void insert (struct list *student_list) {
 
 void delete (struct list *student_list) {
 	// Fetches a name
-	char *name = (char*) malloc(sizeof(char));
+	char *name = (char*) malloc(sizeof(char)*20);
 	printf("Enter a name to delete: \n");
 	scanf("%s", name);
 
