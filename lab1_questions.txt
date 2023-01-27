@@ -1,10 +1,54 @@
-1. 
-2. 
-3. 
-4. 
-5. 
-6. 
-7. 
-8. 
-9. 
-10. 
+0.  a) What is the idea behind system calls? 
+
+    A system call is a way for programs to interact with the operating system. Safe way for programs to not harm vital parts of the system, but still use them. 
+
+    b) Why cannot the code of the system calls be available simply as a library
+to user processes? (Tip: you may look at an article in Wikipedia for the answer).
+
+    The user should not have direct communication with the kernel, but to the OS. Therefore system calls are often availible as libraries between OS an the application because the OS does many important things as making the syscalls unique etc which would'nt have been done if oppisite. 
+
+1.  a) How it is possible to distinguish in syscall handler which system call it is?
+
+    syscall_handler takes in struct intr_frame which has *esp (which points to the stack) to get system call.
+
+    b)  Where are the arguments of a system call stored (if there are any) and how
+can you access them?
+
+    The system call number and any additional arguments are expected to be pushed on the stack in the normal fashion before invoking the interrupt (see section 3.5 80x86 Calling Convention).
+
+2.  a) Where are the user-mode stack and the kernel-mode stack of a process located?
+
+    in the user virtual memory resp kernel virtual memory.
+
+    b) How can you address the user-mode stack in the kernel code, particularly,
+in an interrupt handler?
+
+    Is accessed through esp in intr_frame, which points to the user-mode stack.
+
+    c)  What is the reason of having two stacks instead of one?
+
+    user should not be able too reach kernel-mode stack, therefore two stacks.
+
+3. a)  In which memory is this string stored, and (b) how can we access it in the
+kernel code?
+
+    SVAR:   a) stored in user-mode stacks third word (parameter) 
+            b) can be accessed through syscall_handler with intr_frame
+
+    c)  Specify the situations when accessing the data via that pointer can lead to
+problems.
+
+     a null pointer, a pointer to unmapped virtual memory, or a pointer to kernel virtual address space (above PHYS_BASE)
+
+    d) What can be done about it?
+
+    Way 1: The first method is to verify the validity of a user-provided pointer, then dereference it.
+    Way 2: The second method is to check only that a user pointer points below PHYS_BASE, then dereference it.
+
+4. Why can a user program not simply call functions in filesys directly instead of
+performing system calls?
+
+5. When a file is opened, a file id is returned to the user program, which is used to
+refer to a specific opened file when doing file operations. Explain how to generate file identifiers and map them to struct file pointers that are created
+in the kernel.
+ 
