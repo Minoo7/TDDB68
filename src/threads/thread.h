@@ -94,6 +94,11 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
+
+    /* Every user process should be able to have at least 128 files
+    open at the same time. fd=0 and fd=1 are reserved for stdin resp stdout.*/
+    #define FD_TABLE_SIZE 130
+    struct file *fd_table[FD_TABLE_SIZE];
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 

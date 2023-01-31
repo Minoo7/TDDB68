@@ -56,10 +56,9 @@ int main(void)
   int bytes_read;
   char sbuf[READ_SIZE];
 
-
-
-  //TITLE("TEST 1: Printing text\n");
+  TITLE("TEST 1: Printing text\n");
   bytes_written = write(STDOUT_FILENO, dummyprint, strlen(dummyprint));
+  // printf("RETURNED BYTES: %d, EXPECTED BYTES: %d\n", bytes_written, strlen(dummyprint));
   if (bytes_written < 0 || (size_t)bytes_written != strlen(dummyprint))
   {
     ERROR("Incorrect number of written bytes returned from SYS_WRITE.\n");
@@ -68,8 +67,6 @@ int main(void)
   {
     SUCCESS("TEST 1: Passed\n");
   }
-
-
 
   TITLE("TEST 2: Creating file\n");
   created = create("test0", strlen(testdata));
