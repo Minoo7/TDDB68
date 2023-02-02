@@ -30,7 +30,8 @@ int write(int fd, const void *buffer, unsigned size)
     num_bytes = file_write(file, buffer, size);
 	}
 	//printf("BOTTOM WRITE\n");
-	return (num_bytes) ? num_bytes : -1;
+	return num_bytes;
+	//return (num_bytes) ? num_bytes : -1;
 }
 
 void halt(void)
@@ -85,8 +86,13 @@ int read(int fd, void *buffer, unsigned size)
 		return -1;
 	}
 	struct file *file = thread_current()->fd_table[fd];
-	return file_read(file, buffer, size);
-	//return (read_bytes) ? read_bytes ; -1
+	if (file == NULL) {
+		return -1;
+	}
+	//return file_read(file, buffer, size);
+	int read_bytes = file_read(file, buffer, size);
+	//return (read_bytes) ? read_bytes : -1;
+	return read_bytes;
 }
 
 void exit(int status)
@@ -118,13 +124,13 @@ syscall_handler(struct intr_frame *f UNUSED)
 	{
 		int fd = *(int *)(f->esp + 4);
 		void *buffer = f->esp + 8;
-		unsigned size = *(unsign *)(f->esp + 12);
+		unsigned size = *(unsigned *)(f->esp + 12);
 		f->eax = write(fd, buffer, size);
 		break;
 	}
 	case SYS_CREATE: {
 		const char *file = *(char**)(f->esp + 4);
-    	unsigned size = *(int*)(f->esp + 8);
+    unsigned size = *(int*)(f->esp + 8);
 		f->eax = create(file, size);
 		break;
   }
@@ -141,7 +147,7 @@ syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_READ: {
 		int fd = *(int *)(f->esp + 4);
 		void *buffer = f->esp + 8;
-		unsigned size = *(in *)(f->esp + 12);
+		unsigned size = *(int *)(f->esp + 12);
 		f->eax = (uint32_t)read(fd, (void*) buffer, size);
 		break;
 	}
