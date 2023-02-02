@@ -11,20 +11,25 @@ void syscall_init(void)
 	intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+// 1. ta reda på informationen
+// switch-cases;
+// int *a = (int*) f->esp;
+// printf("Pointer p=%p", *(a + 2));
+
 // pintos --qemu -p ../../examples/lab1test2 -a lab1test2 -- -q
 
 int write(int fd, const void *buffer, unsigned size)
 {
   int num_bytes;
-	if (fd == STDOUT_FILENO) {
-		char *str = (char*)buffer; // (char *) buffer
-		putbuf(str, size);
-		num_bytes = strlen(str);
+	if (fd != 1) {
+		struct thread *current_thread = thread_current();
+    struct file *file = current_thread->elem[fd];
+    num_bytes = file_write(file, buffer, size);
 	}
 	else {
-		struct thread *current_thread = thread_current();
-    struct file *file = current_thread->fd_table[fd];
-    num_bytes = file_write(file, buffer, size);
+    char *str = *(char**)buffer; // (char *) buffer
+		putbuf(str, size);
+		num_bytes = sizeof(str);
 	}
   if (!num_bytes) {
     return -1;
@@ -34,26 +39,17 @@ int write(int fd, const void *buffer, unsigned size)
 
 void halt(void)
 {
-  
 	return 0;
 }
 
 bool create(const char *file, unsigned initial_size)
 {
-	return filesys_create(file, initial_size);
+	return 0;
 }
 
-int open(const char *file_name)
+int open(const char *file)
 {
-	struct file *file = filesys_open(file_name);
-	struct thread *current_thread = thread_current();
-  for (int i = 2; i < FD_TABLE_SIZE; i++) {
-    if (current_thread->fd_table[i] == NULL) {
-      current_thread->fd_table[i] = file;
-			return i;
-    }
-  }
-  return -1;
+	return 0;
 }
 
 void close(int fd)
@@ -91,17 +87,13 @@ syscall_handler(struct intr_frame *f UNUSED)
 		void *buffer = f->esp + 8;
 		unsigned size = *(int *)(f->esp + 12);
 		f->eax = write(fd, buffer, size);
+		//printf("eax: %d\n", f->eax);
 		break;
 	}
 	case SYS_CREATE: {
-		const char *file = (char*)(f->esp + 4);
-    unsigned size = *(int*)(f->esp + 8);
-		f->eax = create(file, size);
 		break;
   }
 	case SYS_OPEN: {
-    const char *file = (char*)(f->esp + 4);
-    //f->eax = open(file);
 		break;
   }
 	case SYS_CLOSE:
@@ -112,6 +104,6 @@ syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	}
 
-	printf("system call!\n");
-	//thread_exit();
+	//printf("system call!\n");
+	thread_exit();
 }
