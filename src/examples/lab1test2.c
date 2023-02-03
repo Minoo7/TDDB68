@@ -29,7 +29,7 @@
 #include <syscall.h>
 #include <stdarg.h>
 
-#define FD_TEST_COUNT 5
+#define FD_TEST_COUNT 128
 #define READ_SIZE 50
 #define READ_CONSOLE_COUNT 10
 
@@ -191,12 +191,10 @@ int main(void)
   printf("Type 10 characters: ");
   bytes_read = read(STDIN_FILENO, sbuf, READ_CONSOLE_COUNT);
   printf("\n");
-  printf("gogo");
   if (bytes_read != READ_CONSOLE_COUNT)
   {
     ERROR("Failed to read %d characters from console, read %d.\n", READ_CONSOLE_COUNT, bytes_read);
   }
-  printf("yooo");
   printf("You have typed: %.*s\n", READ_CONSOLE_COUNT, sbuf);
 
   SUCCESS("TEST 6: Passed\n");
