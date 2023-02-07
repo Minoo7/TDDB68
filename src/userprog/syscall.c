@@ -18,14 +18,14 @@ int write(int fd, const void *buffer, unsigned size)
 		putbuf(str, size);
 		return strlen(str);
 	}
-	else { // 1 < fd < 130
+	else {
 		struct file *file = thread_current()->fd_table[fd];
 		if (file == NULL) {
 			return -1;
 		}
-    return file_write(file, buffer, size);
+		int bytes = file_write(file, buffer, size);
+		return (bytes) ? bytes : -1;
 	}
-	return -1; // fd == 0
 }
 
 void halt(void)
@@ -50,7 +50,7 @@ int open(const char *file)
 			curr_thread->fd_table[fd] = opened;
 			return fd;
 		}
-  }
+  	}
   return -1;
 }
 
@@ -82,7 +82,8 @@ int read(int fd, void *buffer, unsigned size)
 void exit(int status)
 {
 	for (unsigned fd = 2; fd < FD_TABLE_SIZE; fd++) {
-		close(fd);
+		if (fd != NULL)
+			close(fd);
 	}
 	thread_exit();
 }
@@ -94,12 +95,12 @@ static void syscall_handler(struct intr_frame *f UNUSED){
 		case SYS_HALT: {
 			halt();
 			break;
-  	}
+  		}
 		case SYS_EXIT: {
 			int status = *(int *)(f->esp + 4);
 			exit(status);
 			break;
-  	}
+  		}
 		case SYS_WRITE: {
 			int fd = *(int *)(f->esp + 4);
 			void *buffer = *(void**)(f->esp + 8);
@@ -109,10 +110,10 @@ static void syscall_handler(struct intr_frame *f UNUSED){
 		}
 		case SYS_CREATE: {
 			const char *file = *(char**)(f->esp + 4);
-    	unsigned size = *(int*)(f->esp + 8);
+    		unsigned size = *(int*)(f->esp + 8);
 			f->eax = create(file, size);
 			break;
-  	}
+  		}
 		case SYS_OPEN: {
 			const char *file = *(char**)(f->esp + 4);
 			f->eax = open(file);
