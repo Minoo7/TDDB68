@@ -1,0 +1,32 @@
+1. What is busy waiting? Why should the programmer avoid busy waiting
+in a concurrent operating system?
+
+Busy waiting, also known as spinning, or busy looping is a process synchronization technique in which a process/task waits and constantly checks for a condition to be satisfied before proceeding with its execution. In busy waiting, a process executes instructions that test for the entry condition to be true, such as the availability of a lock or resource in the computer system.
+
+This is something that should be avoided since the system is left idle while waiting. This is particularly wasteful if the task/process at hand is of low priority. In that case, resources that can be diverted to complete high-priority tasks are hogged by a low-priority task in busy waiting.
+
+2. Explain difference between Yield and Sleep.
+
+SLEEP:
+a process can wait without consuming the processor. In such a case, the process/task is alerted or awakened when the condition is satisfied. This is known as sleeping, blocked waiting, or sleep waiting.
+
+YIELD:
+sleep and yield are not the same. When calling sleep the process/thread gives CPU to another process/thread for the given amount of time. yield "gives up" the timeslot on the CPU to another thread, but may return immediately if there are no other threads that waits for CPU
+
+3.  What is the difference between locks and semaphores? (Hint: there are
+two main differences). What is a deadlock?
+
+LOCK:
+Locks are methods of synchronization used to prevent multiple threads from accessing a resource at the same time.
+
+SEMAPHORES: 
+Semaphores are integer variables that are used to solve the critical section problem by using two atomic operations, wait and signal that are used for process synchronization.
+
+DIFFERENCE: 
+Locks allows only one thread to access the critical section and semaphores allows x number of threads.
+
+DEADLOCK: 
+A deadlock is a situation in which two computer programs sharing the same resource are effectively preventing each other from accessing the resource, resulting in both programs ceasing to function.
+
+
+
