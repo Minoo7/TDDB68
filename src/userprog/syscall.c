@@ -85,11 +85,16 @@ void exit(int status)
 		if (fd != NULL)
 			close(fd);
 	}
+  //thread_current()->parent_child->exit_status = status;
+  printf("I EXITED\n");
 	thread_exit();
 }
 
+tid_t exec(const char *cmd_line) {
+    return process_execute(cmd_line);
+}
+
 static void syscall_handler(struct intr_frame *f UNUSED){
-	
 	int *syscall_num = (int *)f->esp;
 	switch (*syscall_num) {
 		case SYS_HALT: {
@@ -131,5 +136,10 @@ static void syscall_handler(struct intr_frame *f UNUSED){
 			f->eax = read(fd, buffer, size);
 			break;
 		}
+    case SYS_EXEC: {
+      const char *cmd_line = *(char**)(f->esp + 4);
+      f->eax = exec(cmd_line);
+      break;
+    }
 	}
 }

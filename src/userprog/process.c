@@ -38,10 +38,25 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+
+  struct parent_child *relation = (struct parent_child*) malloc(sizeof(struct parent_child));
+  relation->parent = thread_current();
+  relation->file_name = fn_copy;
+  relation->alive_count = 2;
+
+  // Initialize the wait semaphore
+  sema_init(&relation->wait, 0);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  //printf("FIRST\n");
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, relation);
+  //printf("SECOND\n");
+  sema_down(&relation->wait);
+
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page(fn_copy);
+  if (relation->exit_status != 0)
+    return relation->exit_status;
   return tid;
 }
 
@@ -50,7 +65,9 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  char *file_name = file_name_;
+  //printf("MIDDLE\n");
+  struct parent_child *relation = (struct relation*)args;
+  char *file_name = relation->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -63,8 +80,10 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
-    thread_exit ();
+  if (!success) {
+      thread_current()->relation->exit_status = -1;
+      thread_exit();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -117,6 +136,13 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  ASSERT (intr_get_level () == INTR_ON);
+  // Disable interrupts
+  enum intr_level old_level = intr_disable();
+  free_children(thread_current());
+  // enable interrupts
+  intr_set_level(old_level);
 }
 
 /* Sets up the CPU for running user code in the current
