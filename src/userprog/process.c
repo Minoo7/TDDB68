@@ -26,7 +26,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
@@ -63,7 +63,7 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *args)
 {
   //printf("MIDDLE\n");
   struct parent_child *relation = (struct relation*)args;
@@ -77,6 +77,10 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+  // Put the child in the parent's list of children
+  list_push_back(&(relation->parent->children), &(thread_current()->elem));
+  sema_up(&relation->wait);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -105,12 +109,37 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
-{
+process_wait (tid_t child_tid UNUSED) {
   while (1) {
-    
+
   }
   return -1;
+}
+
+/* Recursively free:s a thread by freeing all its child-threads */
+void free_children(struct thread *curr) {
+  printf("\n121\n");
+  while (!list_empty(&curr->children)) {
+    printf("122\n");
+    struct list_elem *e = list_pop_front(&(curr->children));
+    printf("123\n");
+    struct thread *child = list_entry(e, struct thread, elem);
+    printf("124\n");
+    free_children(child);
+  }
+  printf("130\n");
+  struct parent_child *relation = curr->relation;
+  if (relation != NULL) {
+    printf("133");
+    relation->alive_count--;
+    if (relation->alive_count == 0) {
+      printf("135\n");
+      free(relation);
+      printf("136\n");
+    }
+  }
+  //printf("140\n");
+  //free(&curr);
 }
 
 /* Free the current process's resources. */

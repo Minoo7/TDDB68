@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -89,6 +90,9 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 
+    struct parent_child *relation;
+    struct list children;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -96,8 +100,9 @@ struct thread
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
-   /* Every user process should be able to have at least 128 files
+    /* Every user process should be able to have at least 128 files
     open at the same time. fd=0 and fd=1 are reserved for stdin resp stdout.*/
+
     #define FD_TABLE_SIZE 130
     struct file *fd_table[FD_TABLE_SIZE];
     uint32_t *pagedir;                  /* Page directory. */
@@ -106,6 +111,17 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
+
+struct parent_child {
+    int exit_status;
+    int alive_count;
+    char *file_name;
+
+    struct semaphore wait;
+    struct thread *parent;
+    struct list_elem elem;
+    // tid_t child_id;
+};
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
