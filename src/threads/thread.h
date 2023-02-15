@@ -90,8 +90,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 
-    struct parent_child *relation;
-    struct list children;
+    struct relation *parent_relation; /* Threads relations to the threads parent */
+    struct list relations;            /* List of relations to the threads children */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -118,7 +118,8 @@ struct parent_child {
     char *file_name;
 
     struct semaphore wait;
-    struct thread *parent;
+    struct thread *parent;  /* The parent thread to the relation */
+    struct thread *child;   /* The child thread to the relation */
     struct list_elem elem;
     // tid_t child_id;
 };

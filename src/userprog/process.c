@@ -38,25 +38,25 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-
-  struct parent_child *relation = (struct parent_child*) malloc(sizeof(struct parent_child));
-  relation->parent = thread_current();
-  relation->file_name = fn_copy;
-  relation->alive_count = 2;
+  struct relation *parent_relation = (struct relation*) malloc(sizeof(struct relation));
+  parent_relation->exit_status = 0;
+  parent_relation->parent = thread_current();
+  parent_relation->file_name = fn_copy;
+  parent_relation->alive_count = 2;
 
   // Initialize the wait semaphore
-  sema_init(&relation->wait, 0);
+  sema_init(&parent_relation->wait, 0);
 
   /* Create a new thread to execute FILE_NAME. */
-  //printf("FIRST\n");
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, relation);
-  //printf("SECOND\n");
-  sema_down(&relation->wait);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, parent_relation);
+  sema_down(&parent_relation->wait);
 
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy);
-  if (relation->exit_status != 0)
-    return relation->exit_status;
+  if (parent_relation->exit_status != 0) {
+    free(parent_relation);
+    return -1;
+  }
   return tid;
 }
 
@@ -65,9 +65,9 @@ process_execute (const char *file_name)
 static void
 start_process (void *args)
 {
-  //printf("MIDDLE\n");
-  struct parent_child *relation = (struct relation*)args;
-  char *file_name = relation->file_name;
+  struct thread *child = thread_current();
+  struct relation *parent_relation = (struct parent_relation*)args;
+  char *file_name = parent_relation->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -78,16 +78,23 @@ start_process (void *args)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
 
-  // Put the child in the parent's list of children
-  list_push_back(&(relation->parent->children), &(thread_current()->elem));
-  sema_up(&relation->wait);
-
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) {
-      thread_current()->relation->exit_status = -1;
-      thread_exit();
+  if (success) {
+    // Put the relation in the parent's list
+    list_push_back(&parent_relation->parent->relations, &parent_relation->elem);
+    //parent_relation->child; // Not used now but in case for future labs!
+    parent_relation->child = child;
+    child->parent_relation = parent_relation;
   }
+  else { /* If load failed, quit. */
+    parent_relation->parent = NULL;
+
+    thread_current()->parent_relation->exit_status = -1;
+    list_remove(&parent_relation->elem);
+    thread_exit();
+  }
+  palloc_free_page (file_name);
+
+  sema_up(&parent_relation->wait);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -116,32 +123,6 @@ process_wait (tid_t child_tid UNUSED) {
   return -1;
 }
 
-/* Recursively free:s a thread by freeing all its child-threads */
-void free_children(struct thread *curr) {
-  printf("\n121\n");
-  while (!list_empty(&curr->children)) {
-    printf("122\n");
-    struct list_elem *e = list_pop_front(&(curr->children));
-    printf("123\n");
-    struct thread *child = list_entry(e, struct thread, elem);
-    printf("124\n");
-    free_children(child);
-  }
-  printf("130\n");
-  struct parent_child *relation = curr->relation;
-  if (relation != NULL) {
-    printf("133");
-    relation->alive_count--;
-    if (relation->alive_count == 0) {
-      printf("135\n");
-      free(relation);
-      printf("136\n");
-    }
-  }
-  //printf("140\n");
-  //free(&curr);
-}
-
 /* Free the current process's resources. */
 void
 process_exit (void)
@@ -165,13 +146,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-
-  ASSERT (intr_get_level () == INTR_ON);
-  // Disable interrupts
-  enum intr_level old_level = intr_disable();
-  free_children(thread_current());
-  // enable interrupts
-  intr_set_level(old_level);
 }
 
 /* Sets up the CPU for running user code in the current
