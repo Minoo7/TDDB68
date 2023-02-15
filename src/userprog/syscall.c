@@ -81,13 +81,12 @@ int read(int fd, void *buffer, unsigned size)
 
 void exit(int status)
 {
-	for (unsigned fd = 2; fd < FD_TABLE_SIZE; fd++) {
-		if (fd != NULL)
-			close(fd);
-	}
-  //thread_current()->parent_child->exit_status = status;
-  printf("I EXITED\n");
-	thread_exit();
+  for (unsigned fd = 2; fd < FD_TABLE_SIZE; fd++) {
+    if (fd != NULL)
+      close(fd);
+  }
+  //thread_current()->relation->exit_status = status;
+  thread_exit();
 }
 
 tid_t exec(const char *cmd_line) {

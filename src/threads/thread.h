@@ -112,16 +112,15 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
-struct parent_child {
-    int exit_status;
-    int alive_count;
-    char *file_name;
+struct relation {
+    int exit_status;  /* Status of the relation*/
+    int alive_count;  /* Keeps count of parent and child if they are alive */
+    char *file_name;  /* The name of the file */
 
     struct semaphore wait;
     struct thread *parent;  /* The parent thread to the relation */
     struct thread *child;   /* The child thread to the relation */
     struct list_elem elem;
-    // tid_t child_id;
 };
 
 /* If false (default), use round-robin scheduler.
