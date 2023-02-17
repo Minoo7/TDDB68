@@ -38,6 +38,9 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  // Lab 4
+
+
   struct relation *parent_relation = (struct relation*) malloc(sizeof(struct relation));
   parent_relation->exit_status = 0;
   parent_relation->parent = thread_current();
@@ -238,7 +241,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *file_name, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -258,10 +261,43 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   }
 
+  char *token, *save_ptr;
+  void *temp_esp;
+  char *argv[32];
+  int argc = 0;
+
+  // Go down in stack so we can put first word in argv[] and thereafter go up
+  *esp -= strlen(file_name) + 1;
+  temp_esp = esp;
+  // divvy up arguments by tokenizing input string
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL; token = strtok_r (NULL, " ", &save_ptr)) {
+    // put the token in the vector and increment number of arguments
+    argv[argc++] = token;
+
+    // copy size byte from src to dst and move the esp up for next argument
+    size_t len = strlen(token); // alternativ: strlen(token) + 1
+    strlcpy(temp_esp, &argv[argc], len); // alternativ: memcpy..
+    temp_esp += len;
+    printf("'%s'\n", token);
+  }
+  argv[argc] = NULL;
+
+  // align stack with 4
+  *esp -= (size_t) (*esp) % 4;
+  *esp -= len(argv) * 4;
+  temp_esp = esp;
+  for (int i = 0; i < argc + 1; i++) {
+
+  }
+
+
+  ASSERT(argc == 3);
+
+
    /* Uncomment the following line to print some debug
      information. This will be useful when you debug the program
      stack.*/
-/*#define STACK_DEBUG*/
+#define STACK_DEBUG
 
 #ifdef STACK_DEBUG
   printf("*esp is %p\nstack contents:\n", *esp);
