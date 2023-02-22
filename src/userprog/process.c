@@ -38,13 +38,17 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  // Lab 4
-
+  // Split cmd_line string to only use the file name sent through arguments
+  char *save_ptr;
+  char *file_name = strtok_r (fn_copy, " ", &save_ptr);
+  // binary -s 17
+  printf("FILE_NAME: %s\n", file_name);
 
   struct relation *parent_relation = (struct relation*) malloc(sizeof(struct relation));
   parent_relation->exit_status = 0;
   parent_relation->parent = thread_current();
-  parent_relation->file_name = fn_copy;
+  parent_relation->file_name = file_name;
+  parent_relation->cmd_args = cmd_line_copy;
   parent_relation->alive_count = 2;
 
   // Initialize the wait semaphore

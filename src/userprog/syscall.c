@@ -93,50 +93,94 @@ tid_t exec(const char *cmd_line) {
     return process_execute(cmd_line);
 }
 
+int wait(const tid_t tid) {
+  return process_wait(tid);
+}
+/*
+ * Checks if a pointer is valid
+ * (Below PHYS_SPACE in virtual memory and associated with a page in the page table)
+ */
+bool is_valid_ptr(void *ptr) {
+  if (ptr == NULL || !is_user_vaddr(ptr) || pagedir_get_page(thread_current()->pagedir, ptr) == NULL)
+    return false;
+  return true;
+}
+
+void validate_ptr(void *ptr) {
+  if (!is_valid_ptr(ptr))
+    exit(-1);
+}
+
+// Validates every pointer in buffer
+void* validate_buff(void *buff, unsigned size) {
+  for (size_t i = 0; i < size; i++)
+    validate_ptr(buff + i);
+  return buff;
+}
+
+// Validates a string exits when something went wrong
+char *validate_str(const char* str) {
+  for (char* curr = str; ; curr++) {
+    validate_ptr(curr); // kanske behöver egen check med (char*)
+    if (*curr == '\0')
+      break;
+  }
+  return str;
+}
+
+void *get_arg(void *esp, int index) {
+  void *ptr = esp + (index * sizeof(int));
+  validate_ptr(ptr);
+  return ptr;
+}
+
 static void syscall_handler(struct intr_frame *f UNUSED){
-	int *syscall_num = (int *)f->esp;
-	switch (*syscall_num) {
-		case SYS_HALT: {
-			halt();
-			break;
-  		}
-		case SYS_EXIT: {
-			int status = *(int *)(f->esp + 4);
-			exit(status);
-			break;
-  		}
-		case SYS_WRITE: {
-			int fd = *(int *)(f->esp + 4);
-			void *buffer = *(void**)(f->esp + 8);
-			unsigned size = *(unsigned *)(f->esp + 12);
-			f->eax = write(fd, buffer, size);
-			break;
-		}
-		case SYS_CREATE: {
-			const char *file = *(char**)(f->esp + 4);
-    		unsigned size = *(int*)(f->esp + 8);
-			f->eax = create(file, size);
-			break;
-  		}
-		case SYS_OPEN: {
-			const char *file = *(char**)(f->esp + 4);
-			f->eax = open(file);
-			break;
-		}
-		case SYS_CLOSE: {
-			int fd = *(int *)(f->esp + 4);
-			close(fd);
-			break;
-		}
-		case SYS_READ: {
-			int fd = *(int *)(f->esp + 4);
-			void *buffer = *(void**)(f->esp + 8);
-			unsigned size = *(int *)(f->esp + 12);
-			f->eax = read(fd, buffer, size);
-			break;
-		}
+  validate_ptr(f->esp);
+  void *esp = f->esp;
+  int *syscall_num = (int *)esp;
+
+  switch (*syscall_num) {
+    case SYS_HALT: {
+      halt();
+      break;
+    }
+    case SYS_EXIT: {
+      int status = *(int *) get_arg(esp, 1);
+      exit(status);
+      break;
+    }
+    case SYS_WRITE: {
+      int fd = *(int *) get_arg(esp, 1);
+      unsigned size = *(unsigned *) get_arg(esp, 3);
+      void *buffer = validate_buff(*(void **) get_arg(esp, 2), size);
+      f->eax = write(fd, buffer, size);
+      break;
+    }
+    case SYS_CREATE: {
+      const char *file = validate_str(*(char **) get_arg(esp, 1));
+      unsigned size = *(int *) get_arg(esp, 2);
+      f->eax = create(file, size);
+      break;
+    }
+    case SYS_OPEN: {
+      const char *file = validate_str(*(char **) get_arg(esp, 1));
+      f->eax = open(file);
+      break;
+    }
+    case SYS_CLOSE: {
+      int fd = *(int *) get_arg(esp, 1);
+      close(fd);
+      break;
+    }
+    case SYS_READ: {
+      int fd = *(int *) get_arg(esp, 1);
+      unsigned size = *(int *) get_arg(esp, 3);
+      void *buffer = validate_buff(*(void **) get_arg(esp, 2), size);
+      f->eax = read(fd, buffer, size);
+      break;
+    }
     case SYS_EXEC: {
-      const char *cmd_line = *(char**)(f->esp + 4);
+      const char *cmd_line = validate_str(*(char **) get_arg(esp, 1));
       f->eax = exec(cmd_line);
       break;
     }
