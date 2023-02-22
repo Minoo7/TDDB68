@@ -116,6 +116,7 @@ struct relation {
     int exit_status;  /* Status of the relation*/
     int alive_count;  /* Keeps count of parent and child if they are alive */
     char *file_name;  /* The name of the file */
+    char *cmd_args;
 
     struct semaphore wait;
     struct thread *parent;  /* The parent thread to the relation */

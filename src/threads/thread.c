@@ -276,6 +276,9 @@ void free_relation(struct relation *rel) {
     if (rel->alive_count == 0) {
       free(rel);
     }
+    else {
+      sema_up(&rel->wait);
+    }
   }
 }
 
@@ -314,6 +317,7 @@ thread_exit (void)
     while (!list_empty(&curr_thread->relations)) {
       free_relations(list_entry(list_pop_front(&curr_thread->relations), struct relation, elem));
     }
+
 
   // enable interrupts
   intr_set_level(old_level);

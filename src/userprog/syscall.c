@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -85,7 +86,9 @@ void exit(int status)
     if (fd != NULL)
       close(fd);
   }
-  //thread_current()->relation->exit_status = status;
+  if (thread_current()->parent_relation != NULL)
+    thread_current()->parent_relation->exit_status = status;
+  printf("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit();
 }
 
@@ -184,5 +187,10 @@ static void syscall_handler(struct intr_frame *f UNUSED){
       f->eax = exec(cmd_line);
       break;
     }
-	}
+    case SYS_WAIT: {
+      tid_t tid = *(tid_t *) get_arg(esp, 1);
+      f->eax = wait(tid);
+      break;
+    }
+  }
 }

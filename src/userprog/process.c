@@ -26,17 +26,22 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name)
+process_execute (const char *cmd_line)
 {
   char *fn_copy;
+  char *cmd_line_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME.
+  /* Make a copy of FILE_NAME and CMD_LINE.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy(fn_copy, cmd_line, PGSIZE);
+  cmd_line_copy = palloc_get_page(0);
+  //if (cmd_line_copy == NULL)
+  //  return TID_ERROR;
+  strlcpy(cmd_line_copy, cmd_line, PGSIZE);
 
   // Split cmd_line string to only use the file name sent through arguments
   char *save_ptr;
@@ -83,7 +88,7 @@ start_process (void *args)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (parent_relation->cmd_args, &if_.eip, &if_.esp);
 
   if (success) {
     // Put the relation in the parent's list
@@ -123,11 +128,8 @@ start_process (void *args)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) {
-  while (1) {
+process_wait (tid_t child_tid) {
 
-  }
-  return -1;
 }
 
 /* Free the current process's resources. */
@@ -268,7 +270,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Uncomment the following line to print some debug
     information. This will be useful when you debug the program
     stack.*/
-#define STACK_DEBUG
+/*#define STACK_DEBUG*/
 
 #ifdef STACK_DEBUG
   printf("*esp is %p\nstack contents:\n", *esp);
