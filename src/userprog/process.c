@@ -74,7 +74,7 @@ start_process (void *args)
 {
   struct thread *child = thread_current();
   struct relation *parent_relation = (struct parent_relation*)args;
-  char *file_name = parent_relation->file_name;
+  //char *file_name = parent_relation->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -99,7 +99,7 @@ start_process (void *args)
     list_remove(&parent_relation->elem);
     thread_exit();
   }
-  palloc_free_page (file_name);
+  palloc_free_page (parent_relation->file_name);
 
   sema_up(&parent_relation->wait);
 
