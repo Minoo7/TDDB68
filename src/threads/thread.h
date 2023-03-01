@@ -90,7 +90,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
 
-    struct relation *parent_relation; /* Threads relations to the threads parent */
+    struct relation *parent_rel; /* Threads relations to the threads parent */
     struct list relations;            /* List of relations to the threads children */
 
     /* Shared between thread.c and synch.c. */
@@ -104,7 +104,8 @@ struct thread
     open at the same time. fd=0 and fd=1 are reserved for stdin resp stdout.*/
 
     #define FD_TABLE_SIZE 130
-    struct file *fd_table[FD_TABLE_SIZE];
+    //struct file *fd_table[FD_TABLE_SIZE];
+    struct file *fd_table[130];
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
@@ -115,12 +116,15 @@ struct thread
 struct relation {
     int exit_status;  /* Status of the relation*/
     int alive_count;  /* Keeps count of parent and child if they are alive */
-    char *file_name;  /* The name of the file */
-    char *cmd_args;
+    char* file_name;  /* The name of the file */
+    char* cmd_line;
 
     struct semaphore wait;
     struct thread *parent;  /* The parent thread to the relation */
     struct thread *child;   /* The child thread to the relation */
+    tid_t child_tid;
+    bool waiting;
+    bool loaded;
     struct list_elem elem;
 };
 
