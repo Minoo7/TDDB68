@@ -114,16 +114,16 @@ sleep_less (const struct list_elem *a_, const struct list_elem *b_,
 void
 timer_sleep (int64_t ticks)
 {
-    if (ticks <= 0) {
-        return;
-    }
-    ASSERT (intr_get_level () == INTR_ON);
-    enum intr_level old_level = intr_disable();
-    struct thread *curr_thread = thread_current();
-    curr_thread->sleep_ticks = timer_ticks() + ticks; // current ticks plus ticks to sleep
-    list_insert_ordered(&sleep_queue, &curr_thread->elem, sleep_less, NULL);
-    thread_block();
-    intr_set_level(old_level);
+  if (ticks <= 0) {
+    return;
+  }
+  ASSERT (intr_get_level () == INTR_ON);
+  enum intr_level old_level = intr_disable();
+  struct thread *curr_thread = thread_current();
+  curr_thread->sleep_ticks = timer_ticks() + ticks; // current ticks plus ticks to sleep
+  list_insert_ordered(&sleep_queue, &curr_thread->elem, sleep_less, NULL);
+  thread_block();
+  intr_set_level(old_level);
 }
 
 /* Suspends execution for approximately MS milliseconds. */

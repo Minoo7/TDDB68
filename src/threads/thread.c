@@ -35,11 +35,11 @@ static struct lock tid_lock;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame
-  {
+{
     void *eip;                  /* Return address. */
     thread_func *function;      /* Function to call. */
     void *aux;                  /* Auxiliary data for function. */
-  };
+};
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
@@ -62,10 +62,10 @@ static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
-static void *alloc_frame (struct thread *, size_t size);
-static void schedule (void);
-void schedule_tail (struct thread *prev);
-static tid_t allocate_tid (void);
+                                        static void *alloc_frame (struct thread *, size_t size);
+                                        static void schedule (void);
+                                        void schedule_tail (struct thread *prev);
+                                        static tid_t allocate_tid (void);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -80,8 +80,8 @@ static tid_t allocate_tid (void);
 
    It is not safe to call thread_current() until this function
    finishes. */
-void
-thread_init (void)
+        void
+        thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
@@ -93,6 +93,16 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+}
+
+/* Own method for initializing struct relation */
+void relation_init(struct relation *rel) {
+  rel->parent = thread_current();
+  rel->alive_count = 2;
+  rel->exit_status = 0;
+  rel->child_tid = 0;
+  rel->waiting = false;
+  rel->loaded = false;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -123,7 +133,7 @@ thread_tick (void)
   if (t == idle_thread)
     idle_ticks++;
 #ifdef USERPROG
-  else if (t->pagedir != NULL)
+    else if (t->pagedir != NULL)
     user_ticks++;
 #endif
   else
@@ -269,33 +279,6 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
-void free_relation(struct relation *rel) {
-  if (rel != NULL) {
-    rel->alive_count--;
-    rel->child = NULL;
-    if (rel->alive_count == 0) {
-      free(rel);
-    }
-    else {
-      sema_up(&rel->wait);
-    }
-  }
-}
-
-/* Recursively free:s a thread by freeing all its child-threads */
-void free_relations(struct relation *rel) {
-  if (rel->child == NULL) {
-    return;
-  }
-  struct list relations = rel->child->relations;
-  while (!list_empty(&relations)) {
-    struct list_elem *e = list_pop_front(&relations);
-    struct relation *child_relation = list_entry(e, struct relation, elem);
-    free_relation(child_relation);
-  }
-  free_relation(rel);
-}
-
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
@@ -306,27 +289,12 @@ thread_exit (void)
 
 #ifdef USERPROG
   process_exit ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-  // Disable interrupts
-  enum intr_level old_level = intr_disable();
-
-  if (&curr_thread->parent_relation != NULL)
-    free_relations(&curr_thread->parent_relation);
-  else
-    while (!list_empty(&curr_thread->relations)) {
-      free_relations(list_entry(list_pop_front(&curr_thread->relations), struct relation, elem));
-    }
-
-
-  // enable interrupts
-  intr_set_level(old_level);
 #endif
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
   intr_disable ();
-  thread_current ()->status = THREAD_DYING;
+  curr_thread->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -393,7 +361,7 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -411,25 +379,25 @@ idle (void *idle_started_ UNUSED)
   sema_up (idle_started);
 
   for (;;)
-    {
-      /* Let someone else run. */
-      intr_disable ();
-      thread_block ();
+  {
+    /* Let someone else run. */
+    intr_disable ();
+    thread_block ();
 
-      /* Re-enable interrupts and wait for the next one.
+    /* Re-enable interrupts and wait for the next one.
 
-         The `sti' instruction disables interrupts until the
-         completion of the next instruction, so these two
-         instructions are executed atomically.  This atomicity is
-         important; otherwise, an interrupt could be handled
-         between re-enabling interrupts and waiting for the next
-         one to occur, wasting as much as one clock tick worth of
-         time.
+       The `sti' instruction disables interrupts until the
+       completion of the next instruction, so these two
+       instructions are executed atomically.  This atomicity is
+       important; otherwise, an interrupt could be handled
+       between re-enabling interrupts and waiting for the next
+       one to occur, wasting as much as one clock tick worth of
+       time.
 
-         See [IA32-v2a] "HLT", [IA32-v2b] "STI", and [IA32-v3a]
-         7.11.1 "HLT Instruction". */
-      asm volatile ("sti; hlt" : : : "memory");
-    }
+       See [IA32-v2a] "HLT", [IA32-v2b] "STI", and [IA32-v3a]
+       7.11.1 "HLT Instruction". */
+    asm volatile ("sti; hlt" : : : "memory");
+  }
 }
 
 /* Function used as the basis for a kernel thread. */
@@ -442,7 +410,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void)
@@ -550,10 +518,10 @@ schedule_tail (struct thread *prev)
      initial_thread because its memory was not obtained via
      palloc().) */
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
-    {
-      ASSERT (prev != cur);
-      palloc_free_page (prev);
-    }
+  {
+    ASSERT (prev != cur);
+    palloc_free_page (prev);
+  }
 }
 
 /* Schedules a new process.  At entry, interrupts must be off and
@@ -592,7 +560,7 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);

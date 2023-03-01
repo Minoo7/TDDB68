@@ -29,46 +29,39 @@ tid_t
 process_execute (const char *cmd_line)
 {
   char *fn_copy;
-  char *cmd_line_copy;
+  char *cmd_copy;
   tid_t tid;
 
-  /* Make a copy of FILE_NAME and CMD_LINE.
+  /* Make a copy of FILE_NAME and CMD_LINE
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  cmd_copy = palloc_get_page(0);
+  if (fn_copy == NULL || cmd_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, cmd_line, PGSIZE);
-  cmd_line_copy = palloc_get_page(0);
-  //if (cmd_line_copy == NULL)
-  //  return TID_ERROR;
-  strlcpy(cmd_line_copy, cmd_line, PGSIZE);
+  strlcpy(cmd_copy, cmd_line, PGSIZE);
 
   // Split cmd_line string to only use the file name sent through arguments
   char *save_ptr;
   char *file_name = strtok_r (fn_copy, " ", &save_ptr);
-  // binary -s 17
-  printf("FILE_NAME: %s\n", file_name);
 
-  struct relation *parent_relation = (struct relation*) malloc(sizeof(struct relation));
-  parent_relation->exit_status = 0;
-  parent_relation->parent = thread_current();
-  parent_relation->file_name = file_name;
-  parent_relation->cmd_args = cmd_line_copy;
-  parent_relation->alive_count = 2;
+  struct relation *rel = (struct relation*) malloc(sizeof(struct relation));
+  relation_init(rel);
+  rel->file_name = file_name;
+  rel->cmd_line = cmd_copy;
 
   // Initialize the wait semaphore
-  sema_init(&parent_relation->wait, 0);
+  sema_init(&rel->wait, 0);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, parent_relation);
-  sema_down(&parent_relation->wait);
-
-  if (tid == TID_ERROR)
-    palloc_free_page(fn_copy);
-  if (parent_relation->exit_status != 0) {
-    free(parent_relation);
-    return -1;
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, rel);
+  sema_down(&rel->wait);
+  if (!rel->loaded) {
+    palloc_free_page(cmd_copy);
+    free(rel);
+    return TID_ERROR; // -1
   }
+  rel->child_tid = tid;
   return tid;
 }
 
@@ -78,8 +71,8 @@ static void
 start_process (void *args)
 {
   struct thread *child = thread_current();
-  struct relation *parent_relation = (struct parent_relation*)args;
-  //char *file_name = parent_relation->file_name;
+  struct relation *rel = (struct relation*)args;
+  char *file_name = rel->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -88,25 +81,24 @@ start_process (void *args)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (parent_relation->cmd_args, &if_.eip, &if_.esp);
+  success = load (rel->cmd_line, &if_.eip, &if_.esp);
 
+  /* If load failed, quit. */
+  palloc_free_page (file_name);
+
+  rel->loaded=success;
   if (success) {
     // Put the relation in the parent's list
-    list_push_back(&parent_relation->parent->relations, &parent_relation->elem);
-    //parent_relation->child; // Not used now but in case for future labs!
-    parent_relation->child = child;
-    child->parent_relation = parent_relation;
+    list_push_back(&rel->parent->relations, &rel->elem);
+    rel->child = child;
+    child->parent_rel = rel;
   }
-  else { /* If load failed, quit. */
-    parent_relation->parent = NULL;
-
-    thread_current()->parent_relation->exit_status = -1;
-    list_remove(&parent_relation->elem);
+  else {
+    rel->exit_status = -1;
+    sema_up(&rel->wait);
     thread_exit();
   }
-  palloc_free_page (parent_relation->file_name);
-
-  sema_up(&parent_relation->wait);
+  sema_up(&rel->wait);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -129,19 +121,61 @@ start_process (void *args)
    does nothing. */
 int
 process_wait (tid_t child_tid) {
-
+  struct thread* parent = thread_current();
+  for (struct list_elem *e = list_begin (&parent->relations); e != list_end (&parent->relations); e = list_next (e)) {
+    struct relation *rel = list_entry (e, struct relation, elem);
+    if (rel->child_tid == child_tid && !rel->waiting) {
+      rel->waiting = true;
+      sema_down(&rel->wait);
+      return rel->exit_status;
+    }
+  }
+  return -1;
 }
 
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread *curr_thread = thread_current ();
+  struct relation *rel;
   uint32_t *pd;
+
+  ASSERT (intr_get_level () == INTR_ON);
+
+  // Disable interrupts
+  enum intr_level old_level = intr_disable();
+  while (!list_empty (&curr_thread->relations)) {
+    struct list_elem *e = list_pop_front(&curr_thread->relations);
+    rel = list_entry(e, struct relation, elem);
+    rel->alive_count--;
+    if (rel->alive_count == 0){
+      free(rel);
+    } else {
+      rel->waiting = false;
+    }
+  }
+
+  /* For child dying.
+    check if current thread has a parent, in that case decrement
+    parent_child link's alive count by one. Free if zero, wake parent otherwise
+  */
+  rel = curr_thread->parent_rel;
+  if (rel != NULL){
+    rel->alive_count--;
+    if (rel->alive_count == 0){
+      free(rel);
+    } else {
+      rel->waiting = false;
+      sema_up(&(rel->wait));
+    }
+  }
+  // enable interrupts
+  intr_set_level(old_level);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
+  pd = curr_thread->pagedir;
   if (pd != NULL)
     {
       /* Correct ordering here is crucial.  We must set
@@ -151,7 +185,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      cur->pagedir = NULL;
+      curr_thread->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
@@ -236,7 +270,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, char *file_name);
+static bool setup_stack (void **esp, char *cmd_line);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t uoffset,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -247,7 +281,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp)
+load (const char *cmd_line, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -263,7 +297,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Set up stack. */
-  if (!setup_stack (esp, file_name)){
+  if (!setup_stack (esp, cmd_line)){
     goto done;
   }
 
@@ -306,10 +340,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 #endif
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (cmd_line);
   if (file == NULL)
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", cmd_line);
       goto done;
     }
 
@@ -322,7 +356,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024)
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", cmd_line);
       goto done;
     }
 
@@ -525,7 +559,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage, uint32_t page_offset
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, char *file_name)
+setup_stack (void **esp, char *cmd_line)
 {
   uint8_t *kpage;
   bool success = false;
@@ -542,10 +576,10 @@ setup_stack (void **esp, char *file_name)
         int argc = 0;
 
         // Go down in stack so we can put first word in argv[] and thereafter go up
-        *esp -= strlen(file_name) + 1;
+        *esp -= strlen(cmd_line) + 1;
         temp_esp = *esp;
         // divvy up arguments by tokenizing input string
-        for (token = strtok_r(file_name, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+        for (token = strtok_r(cmd_line, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
           // put the token in the vector and increment number of arguments
           argv[argc] = token;
 
