@@ -160,12 +160,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   while (!list_empty (&sleep_queue)) {
-      struct list_elem *e = list_begin(&sleep_queue);
-      struct thread *t = list_entry(e, struct thread, elem);
-      if (t->sleep_ticks <= ticks) { // Har threaden sovit färdigt?
-          list_remove(&t->elem);
-          thread_unblock(t);
-      } else break;
+    struct list_elem *e = list_begin(&sleep_queue);
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (t->sleep_ticks <= ticks) { // Har threaden sovit färdigt?
+      list_remove(&t->elem);
+      thread_unblock(t);
+    } else break;
   }
   thread_tick(); // used mainly for updating statistics
 }

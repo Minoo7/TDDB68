@@ -570,6 +570,7 @@ setup_stack (void **esp, char *cmd_line)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success) {
         *esp = PHYS_BASE;
+
         char *token, *save_ptr;
         void *temp_esp;
         char *argv[32];
