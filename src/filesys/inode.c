@@ -38,6 +38,10 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+
+    struct semaphore resource;          /* */
+    struct semaphore rmutex;
+    int read_cnt;                       /* Number of readers */
   };
 
 /* Returns the disk sector that contains byte offset POS within
@@ -225,6 +229,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
 
+  int *read_cnt = &inode->read_cnt; // ta bort om inte gar
+
+  sema_down(&inode->rmutex);
+  read_cnt++;
+  if (read_cnt == 1) {
+    sema_down(&inode->resource);
+  }
+  sema_up(&inode->rmutex);
+
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
@@ -345,6 +358,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       bytes_written += chunk_size;
     }
   free (bounce);
+  sema_up(&inode->resource);
 
   return bytes_written;
 }

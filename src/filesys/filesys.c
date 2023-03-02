@@ -52,11 +52,9 @@ filesys_create (const char *name, off_t initial_size)
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size)
                   && dir_add (dir, name, inode_sector));
-  //printf("THIS IS SUCCESS: %d\n", success);
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
-  //printf("AFTER CREATE\n");
 
   return success;
 }

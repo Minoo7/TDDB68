@@ -163,6 +163,20 @@ void seek(int fd, unsigned position) {
     file_seek(file, len);
 }
 
+unsigned tell(int fd) {
+  struct file *file = get_file(fd);
+  return (unsigned) file_tell(file);
+}
+
+int filesize(int fd) {
+  struct file *file = get_file(fd);
+  return file_length(file);
+}
+
+bool remove(const char* file_name) {
+  return filesys_remove(file_name);
+}
+
 static void syscall_handler(struct intr_frame *f UNUSED){
   ASSERT(f != NULL);
   validate_ptr(f->esp);
@@ -217,6 +231,28 @@ static void syscall_handler(struct intr_frame *f UNUSED){
     case SYS_WAIT: {
       tid_t tid = *(tid_t *) get_arg(esp, 1);
       f->eax = wait(tid);
+      break;
+    }
+    case SYS_TELL: {
+      int fd = validate_fd(*(int *) get_arg(esp, 1));
+      f->eax = tell(fd);
+      break;
+    }
+    case SYS_FILESIZE: {
+      int fd = validate_fd(*(int *) get_arg(esp, 1));
+      f->eax = filesize(fd);
+      break;
+    }
+    case SYS_SEEK: {
+      int fd = validate_fd(*(int *) get_arg(esp, 1));
+      int position = *(int*) get_arg(esp, 2);
+      ASSERT(position >= 0); // OM DETTA ALDRIG SKER SATT POSITION TILL UNSIGNED ISTALLET SEN **
+      seek(fd, position);
+      break;
+    }
+    case SYS_REMOVE: {
+      const char *file_name = validate_str(*(char **) get_arg(esp, 1));
+      f->eax = remove(file_name);
       break;
     }
   }
