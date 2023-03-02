@@ -105,6 +105,12 @@ void relation_init(struct relation *rel) {
   rel->loaded = false;
 }
 
+#ifdef USERPROG
+struct file* get_file(int fd) {
+  return thread_current()->fd_table[fd]; // thread_current()->fd_table[0x4384398]
+}
+#endif
+
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void

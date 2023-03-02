@@ -6,6 +6,7 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -57,11 +58,14 @@ byte_to_sector (const struct inode *inode, off_t pos)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
+static struct lock access_lock;
+
 /* Initializes the inode module. */
 void
 inode_init (void) 
 {
   list_init (&open_inodes);
+  lock_init(&access_lock);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -111,6 +115,7 @@ inode_create (disk_sector_t sector, off_t length)
 struct inode *
 inode_open (disk_sector_t sector) 
 {
+  lock_acquire(&access_lock);
   struct list_elem *e;
   struct inode *inode;
 
@@ -121,15 +126,19 @@ inode_open (disk_sector_t sector)
       inode = list_entry (e, struct inode, elem);
       if (inode->sector == sector) 
         {
+          // if inode removed return null
           inode_reopen (inode);
+          lock_release(&access_lock);
           return inode; 
         }
     }
 
   /* Allocate memory. */
   inode = malloc (sizeof *inode);
-  if (inode == NULL)
+  if (inode == NULL) {
+    lock_release(&access_lock);
     return NULL;
+  }
 
   /* Initialize. */
   list_push_front (&open_inodes, &inode->elem);
@@ -137,7 +146,13 @@ inode_open (disk_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+
+  sema_init(&inode->resource, 1);
+  sema_init(&inode->rmutex, 1);
+  inode->read_cnt = 0;
+
   disk_read (filesys_disk, inode->sector, &inode->data);
+  lock_release(&access_lock);
   return inode;
 }
 
@@ -170,6 +185,8 @@ inode_close (struct inode *inode)
   if (inode == NULL)
     return;
 
+  lock_acquire(&access_lock);
+
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
@@ -186,6 +203,7 @@ inode_close (struct inode *inode)
 
       free (inode); 
     }
+  lock_release(&access_lock);
 }
 
 /* Marks INODE to be deleted when it is closed by the last caller who
@@ -249,6 +267,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     }
   free (bounce);
 
+  /* Done with reading */
+  sema_down(&inode->rmutex);
+  read_cnt--;
+  if (read_cnt == 0) {
+    sema_up(&inode->resource);
+  }
+  // Release lock
+  sema_up(&inode->rmutex);
+
   return bytes_read;
 }
 
@@ -267,6 +294,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   if (inode->deny_write_cnt)
     return 0;
+
+  sema_down(&inode->resource);
 
   while (size > 0) 
     {

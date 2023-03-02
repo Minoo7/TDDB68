@@ -21,7 +21,7 @@ bool is_valid_ptr(void *ptr) {
 }
 
 bool is_valid_fd(int fd) {
-  return (fd > 0 && fd <= 130);
+  return (fd >= 0 && fd <= FD_TABLE_SIZE);
 }
 
 void validate_ptr(void *ptr) {
@@ -31,6 +31,8 @@ void validate_ptr(void *ptr) {
 
 int validate_fd(int fd) {
   if (!is_valid_fd(fd))
+    exit(-1);
+  if (fd > 1 && !get_file(fd))
     exit(-1);
   return fd;
 }
@@ -63,18 +65,18 @@ void *get_arg(void *esp, int index) {
 
 int write(int fd, const void *buffer, unsigned size)
 {
+  if (fd == STDIN_FILENO)// fd = 0
+    return -1;
   if (fd == STDOUT_FILENO) { // fd = 1
     char *str = (char*)buffer;
     putbuf(str, size);
     return strlen(str);
   }
-  else {
-    struct file *file = thread_current()->fd_table[fd];
-    if (file == NULL) {
-      return -1;
-    }
-    return file_write(file, buffer, size);
+  struct file *file = get_file(fd);
+  if (file == NULL) {
+    return -1;
   }
+  return file_write(file, buffer, size);
 }
 
 void halt(void)
@@ -125,7 +127,7 @@ int read(int fd, void *buffer, unsigned size)
   if (fd == STDOUT_FILENO) { // fd = 1
     return -1;
   }
-  struct file *file = thread_current()->fd_table[fd];
+  struct file *file = get_file(fd);
   if (file == NULL) {
     return -1;
   }
@@ -150,6 +152,15 @@ tid_t exec(const char *cmd_line) {
 
 int wait(const tid_t tid) {
   return process_wait(tid);
+}
+
+void seek(int fd, unsigned position) {
+  struct file *file = get_file(fd);
+  off_t len = file_length(file);
+  if (position <= len)
+    file_seek(file, position);
+  else
+    file_seek(file, len);
 }
 
 static void syscall_handler(struct intr_frame *f UNUSED){
